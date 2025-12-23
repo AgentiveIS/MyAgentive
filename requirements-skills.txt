@@ -1,0 +1,14 @@
+# Python dependencies for Claude skills
+# Install with: pip install -r requirements-skills.txt
+
+# HTTP requests (gemini-imagen, deepgram-transcription, social-media-poster)
+requests>=2.28.0
+
+# Image processing (gemini-imagen)
+Pillow>=10.0.0
+
+# Environment variables (social-media-poster)
+python-dotenv>=1.0.0
+
+# Twitter/X API (social-media-poster)
+tweepy>=4.14.0

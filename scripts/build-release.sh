@@ -1,0 +1,87 @@
+#!/bin/bash
+# Build release packages for MyAgentive
+# Creates versioned archives for macOS and Linux
+
+set -e
+
+# Get version from package.json
+VERSION=$(grep '"version"' package.json | sed 's/.*"version": "\([^"]*\)".*/\1/')
+
+if [ -z "$VERSION" ]; then
+    echo "Error: Could not read version from package.json"
+    exit 1
+fi
+
+echo "Building MyAgentive v$VERSION release packages..."
+
+# Create release directory
+RELEASE_DIR="release"
+mkdir -p "$RELEASE_DIR"
+
+# Build frontend
+echo "Building frontend..."
+bunx vite build
+
+# Build macOS binary
+echo "Building macOS binary..."
+bun build --compile server/index.ts --outfile dist/myagentive
+
+# Build Linux binary
+echo "Building Linux x64 binary..."
+bun build --compile --target=bun-linux-x64 server/index.ts --outfile "$RELEASE_DIR/MyAgentive-linux/myagentive"
+
+# Prepare macOS package
+echo "Preparing macOS package..."
+cp dist/myagentive "$RELEASE_DIR/MyAgentive/"
+mkdir -p "$RELEASE_DIR/MyAgentive/dist"
+cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive/dist/"
+cp LICENSE "$RELEASE_DIR/MyAgentive/"
+
+# Copy skills
+echo "Copying skills..."
+rm -rf "$RELEASE_DIR/MyAgentive/skills"
+cp -r .claude/skills "$RELEASE_DIR/MyAgentive/skills"
+# Remove .DS_Store, venv, and other junk
+find "$RELEASE_DIR/MyAgentive/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive/skills" -name '.env' -delete
+
+chmod +x "$RELEASE_DIR/MyAgentive/install.sh" "$RELEASE_DIR/MyAgentive/myagentivectl" "$RELEASE_DIR/MyAgentive/myagentive"
+
+# Prepare Linux package
+echo "Preparing Linux package..."
+mkdir -p "$RELEASE_DIR/MyAgentive-linux/dist"
+cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive-linux/dist/"
+cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
+
+# Copy skills for Linux
+rm -rf "$RELEASE_DIR/MyAgentive-linux/skills"
+cp -r .claude/skills "$RELEASE_DIR/MyAgentive-linux/skills"
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.env' -delete
+
+chmod +x "$RELEASE_DIR/MyAgentive-linux/myagentive" "$RELEASE_DIR/MyAgentive-linux/install.sh" "$RELEASE_DIR/MyAgentive-linux/myagentivectl"
+
+# Create archives with version
+echo "Creating archives..."
+cd "$RELEASE_DIR"
+
+# Remove old archives
+rm -f MyAgentive-*.tar.gz
+
+# Create versioned archives
+tar -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
+tar -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
+
+echo ""
+echo "Release packages created:"
+ls -lh MyAgentive-v${VERSION}-*.tar.gz
+echo ""
+echo "Done! Version: $VERSION"

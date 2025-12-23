@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database (keep folder with .gitkeep)
+data/**
+!data/
+!data/.gitkeep
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Media files (keep folder structure with .gitkeep)
+media/**
+!media/
+!media/*/
+!media/*/.gitkeep
+
+# Build output
+dist/
+
+# Release binaries and archives (scripts kept in repo)
+release/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Demo files (not needed in production)
+demo.gif
+diagram.png
+.playwright-mcp/
+
+# Generated images
+gemini_image_*.png
+
+# Claude Code settings
+#.claude/
+
+# Python virtual environments and cache
+.venv/
+venv/
+**/venv/
+**/*_venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
+
+
+# Runtime transcript data
+*_transcript.txt
+*_transcription.json

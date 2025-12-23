@@ -1,0 +1,358 @@
+import { EventEmitter } from "events";
+import { AgentSession } from "./ai-client.js";
+import { sessionRepo } from "../db/repositories/session-repo.js";
+import { messageRepo } from "../db/repositories/message-repo.js";
+import type {
+  SessionInfo,
+  ChatMessage,
+  OutputCallback,
+  ClientSubscription,
+  OutgoingWSMessage,
+  ActivityEvent,
+} from "../types.js";
+
+// Options for listing sessions
+export interface ListSessionsOptions {
+  archived?: boolean;
+}
+
+// Convert database session to SessionInfo
+function toSessionInfo(dbSession: any): SessionInfo {
+  return {
+    id: dbSession.id,
+    name: dbSession.name,
+    title: dbSession.title,
+    createdAt: dbSession.created_at,
+    updatedAt: dbSession.updated_at,
+    archived: dbSession.archived === 1,
+  };
+}
+
+// Convert database message to ChatMessage
+function toChatMessage(dbMessage: any): ChatMessage {
+  return {
+    id: dbMessage.id,
+    sessionId: dbMessage.session_id,
+    role: dbMessage.role,
+    content: dbMessage.content,
+    timestamp: dbMessage.timestamp,
+    source: dbMessage.source,
+    metadata: dbMessage.metadata ? JSON.parse(dbMessage.metadata) : undefined,
+  };
+}
+
+class ManagedSession {
+  public readonly sessionId: string;
+  public readonly sessionName: string;
+  private agentSession: AgentSession;
+  private subscribers: Map<string, ClientSubscription> = new Map();
+  private isListening = false;
+  private eventEmitter: EventEmitter;
+
+  constructor(sessionId: string, sessionName: string, eventEmitter: EventEmitter) {
+    this.sessionId = sessionId;
+    this.sessionName = sessionName;
+    this.eventEmitter = eventEmitter;
+    this.agentSession = new AgentSession();
+  }
+
+  private async startListening() {
+    if (this.isListening) return;
+    this.isListening = true;
+
+    try {
+      for await (const message of this.agentSession.getOutputStream()) {
+        this.handleSDKMessage(message);
+      }
+    } catch (error) {
+      console.error(`Error in session ${this.sessionName}:`, error);
+      this.broadcastError((error as Error).message);
+
+      // Emit activity event for the error
+      this.emitActivity("error", `Session error: ${(error as Error).message}`);
+    } finally {
+      // Reset listening state so session can recover
+      this.isListening = false;
+    }
+  }
+
+  // Reset the agent session (for recovery after errors)
+  private resetAgentSession() {
+    try {
+      this.agentSession.close();
+    } catch {
+      // Ignore close errors
+    }
+    this.agentSession = new AgentSession();
+    this.isListening = false;
+  }
+
+  sendMessage(content: string, source: string = "web") {
+    // Store user message in database
+    messageRepo.create({
+      session_id: this.sessionId,
+      role: "user",
+      content,
+      source,
+    });
+
+    // Broadcast user message to all subscribers
+    this.broadcast({
+      type: "user_message",
+      content,
+      sessionName: this.sessionName,
+      source,
+    });
+
+    // Emit activity event
+    this.emitActivity("message", `User: ${content.substring(0, 100)}...`, { role: "user", source });
+
+    // Try to send to agent, reset session if it fails
+    try {
+      this.agentSession.sendMessage(content);
+    } catch (error) {
+      console.warn(`Agent session error, resetting: ${(error as Error).message}`);
+      this.resetAgentSession();
+      // Try again with fresh session
+      try {
+        this.agentSession.sendMessage(content);
+      } catch (retryError) {
+        console.error(`Failed to send message after reset:`, retryError);
+        this.broadcastError(`Failed to send message: ${(retryError as Error).message}`);
+        return;
+      }
+    }
+
+    // Start listening if not already
+    if (!this.isListening) {
+      this.startListening();
+    }
+  }
+
+  private handleSDKMessage(message: any) {
+    if (message.type === "assistant") {
+      const content = message.message.content;
+
+      if (typeof content === "string") {
+        this.storeAndBroadcastAssistant(content);
+      } else if (Array.isArray(content)) {
+        for (const block of content) {
+          if (block.type === "text") {
+            this.storeAndBroadcastAssistant(block.text);
+          } else if (block.type === "tool_use") {
+            this.broadcast({
+              type: "tool_use",
+              toolName: block.name,
+              toolId: block.id,
+              toolInput: block.input,
+              sessionName: this.sessionName,
+            });
+
+            // Emit activity event for tool use
+            this.emitActivity("tool_use", `Tool: ${block.name}`, {
+              toolName: block.name,
+              toolId: block.id,
+              toolInput: block.input,
+            });
+          }
+        }
+      }
+    } else if (message.type === "result") {
+      this.broadcast({
+        type: "result",
+        success: message.subtype === "success",
+        sessionName: this.sessionName,
+        cost: message.total_cost_usd,
+        duration: message.duration_ms,
+      });
+    }
+  }
+
+  private storeAndBroadcastAssistant(content: string) {
+    // Store in database
+    messageRepo.create({
+      session_id: this.sessionId,
+      role: "assistant",
+      content,
+      source: "agent",
+    });
+
+    // Broadcast to subscribers
+    this.broadcast({
+      type: "assistant_message",
+      content,
+      sessionName: this.sessionName,
+    });
+  }
+
+  subscribe(clientId: string, clientType: "web" | "telegram", callback: OutputCallback) {
+    this.subscribers.set(clientId, {
+      clientId,
+      clientType,
+      sessionName: this.sessionName,
+      callback,
+    });
+  }
+
+  unsubscribe(clientId: string) {
+    this.subscribers.delete(clientId);
+  }
+
+  hasSubscribers(): boolean {
+    return this.subscribers.size > 0;
+  }
+
+  private broadcast(message: OutgoingWSMessage) {
+    for (const subscription of this.subscribers.values()) {
+      try {
+        subscription.callback(message);
+      } catch (error) {
+        console.error(`Error broadcasting to client ${subscription.clientId}:`, error);
+        this.subscribers.delete(subscription.clientId);
+      }
+    }
+  }
+
+  private broadcastError(error: string) {
+    this.broadcast({
+      type: "error",
+      error,
+    });
+  }
+
+  private emitActivity(type: ActivityEvent["type"], summary: string, details?: Record<string, any>) {
+    this.eventEmitter.emit("activity", {
+      sessionId: this.sessionId,
+      sessionName: this.sessionName,
+      type,
+      summary,
+      details,
+    } as ActivityEvent);
+  }
+
+  close() {
+    this.agentSession.close();
+  }
+}
+
+class SessionManager extends EventEmitter {
+  private sessions: Map<string, ManagedSession> = new Map();
+  private clientSessions: Map<string, string> = new Map(); // clientId -> sessionName
+
+  getOrCreateSession(name: string, createdBy: string = "web"): ManagedSession {
+    // Check if session already exists in memory
+    let session = this.sessions.get(name);
+    if (session) {
+      return session;
+    }
+
+    // Get or create in database
+    const dbSession = sessionRepo.getOrCreateByName(name, createdBy);
+
+    // Create managed session
+    session = new ManagedSession(dbSession.id, dbSession.name, this);
+    this.sessions.set(name, session);
+
+    return session;
+  }
+
+  getSession(name: string): ManagedSession | null {
+    return this.sessions.get(name) || null;
+  }
+
+  listSessions(options: ListSessionsOptions = {}): SessionInfo[] {
+    const dbSessions = sessionRepo.list({ archived: options.archived });
+    return dbSessions.map(toSessionInfo);
+  }
+
+  archiveSession(name: string): boolean {
+    // Close managed session if in memory
+    const session = this.sessions.get(name);
+    if (session) {
+      session.close();
+      this.sessions.delete(name);
+    }
+    return sessionRepo.archiveByName(name);
+  }
+
+  unarchiveSession(name: string): boolean {
+    return sessionRepo.unarchiveByName(name);
+  }
+
+  getSessionMessages(sessionName: string): ChatMessage[] {
+    const dbMessages = messageRepo.getBySessionName(sessionName);
+    return dbMessages.map(toChatMessage);
+  }
+
+  subscribeClient(
+    clientId: string,
+    sessionName: string,
+    clientType: "web" | "telegram",
+    callback: OutputCallback
+  ): ManagedSession {
+    // Unsubscribe from previous session if any
+    this.unsubscribeClient(clientId);
+
+    // Get or create session
+    const session = this.getOrCreateSession(sessionName, clientType);
+
+    // Subscribe to session
+    session.subscribe(clientId, clientType, callback);
+
+    // Track client's current session
+    this.clientSessions.set(clientId, sessionName);
+
+    return session;
+  }
+
+  unsubscribeClient(clientId: string) {
+    const currentSessionName = this.clientSessions.get(clientId);
+    if (currentSessionName) {
+      const session = this.sessions.get(currentSessionName);
+      if (session) {
+        session.unsubscribe(clientId);
+      }
+      this.clientSessions.delete(clientId);
+    }
+  }
+
+  sendMessage(clientId: string, content: string, source: string = "web") {
+    const sessionName = this.clientSessions.get(clientId);
+    if (!sessionName) {
+      throw new Error(`Client ${clientId} is not subscribed to any session`);
+    }
+
+    const session = this.sessions.get(sessionName);
+    if (!session) {
+      throw new Error(`Session ${sessionName} not found`);
+    }
+
+    session.sendMessage(content, source);
+  }
+
+  getClientSession(clientId: string): string | null {
+    return this.clientSessions.get(clientId) || null;
+  }
+
+  deleteSession(name: string): boolean {
+    const session = this.sessions.get(name);
+    if (session) {
+      session.close();
+      this.sessions.delete(name);
+    }
+    return sessionRepo.deleteByName(name);
+  }
+
+  // Clean up inactive sessions (no subscribers)
+  cleanup() {
+    for (const [name, session] of this.sessions) {
+      if (!session.hasSubscribers()) {
+        session.close();
+        this.sessions.delete(name);
+      }
+    }
+  }
+}
+
+// Singleton instance
+export const sessionManager = new SessionManager();
