@@ -8,7 +8,7 @@ Open-source personal AI agent for power users. Runs on your laptop with Telegram
 
 ```bash
 # Option 1: Homebrew (recommended)
-brew tap myagentivetap
+brew tap AgentiveIS/tap
 brew install myagentive
 
 # Option 2: Install script
