@@ -1,5 +1,5 @@
 # CODEOWNERS - Defines who must review pull requests
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# All files require approval from the maintainer
-* @ATKmain
+# All files require approval from at least one maintainer
+* @AgentiveCore @ATKmain @amir-with-attitude
