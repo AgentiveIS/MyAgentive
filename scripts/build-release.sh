@@ -81,9 +81,19 @@ echo "Stripping macOS extended attributes..."
 xattr -cr MyAgentive 2>/dev/null || true
 xattr -cr MyAgentive-linux 2>/dev/null || true
 
-# Create versioned archives (COPYFILE_DISABLE prevents ._* AppleDouble files)
-COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
-COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
+# Use GNU tar if available (supports --no-xattrs to prevent xattr headers in archive)
+# Install with: brew install gnu-tar
+if command -v gtar &> /dev/null; then
+    echo "Using GNU tar (gtar) for clean archives..."
+    COPYFILE_DISABLE=1 gtar --no-xattrs -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
+    COPYFILE_DISABLE=1 gtar --no-xattrs -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
+else
+    echo "Warning: GNU tar (gtar) not found. Archives may show xattr warnings on Linux."
+    echo "Install with: brew install gnu-tar"
+    # Fallback to BSD tar (COPYFILE_DISABLE prevents ._* AppleDouble files but not xattr headers)
+    COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
+    COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
+fi
 
 echo ""
 echo "Release packages created:"
