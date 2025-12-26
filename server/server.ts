@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import { createServer, Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { v4 as uuidv4 } from "uuid";
 import type { WSClient, IncomingWSMessage, OutgoingWSMessage } from "./types.js";
@@ -17,6 +18,11 @@ import {
   verifyPassword,
   validateToken,
 } from "./auth/middleware.js";
+import {
+  validateMediaPath,
+  getMimeType,
+  MAX_MEDIA_SIZE,
+} from "./utils/media-detector.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -152,6 +158,34 @@ app.patch("/api/sessions/:name", authMiddleware, (req, res) => {
 app.get("/api/sessions/:name/messages", authMiddleware, (req, res) => {
   const messages = sessionManager.getSessionMessages(req.params.name);
   res.json(messages);
+});
+
+// Media file serving endpoint (authenticated)
+// Security: validates path is within media directory, checks file size
+app.get("/api/media/*", authMiddleware, (req, res) => {
+  const relativePath = req.params[0];
+
+  // Validate and resolve the path securely
+  const fullPath = validateMediaPath(relativePath, config.mediaPath);
+
+  if (!fullPath) {
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  // Check file size
+  const stats = fs.statSync(fullPath);
+  if (stats.size > MAX_MEDIA_SIZE) {
+    return res.status(413).json({ error: "File too large" });
+  }
+
+  // Set appropriate content type
+  const mimeType = getMimeType(fullPath);
+  res.setHeader("Content-Type", mimeType);
+  res.setHeader("Content-Length", stats.size);
+
+  // Stream the file
+  const stream = fs.createReadStream(fullPath);
+  stream.pipe(res);
 });
 
 // Legacy API endpoints for compatibility

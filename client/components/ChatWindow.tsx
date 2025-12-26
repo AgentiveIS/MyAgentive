@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
@@ -8,6 +8,167 @@ interface Message {
   timestamp: string;
   toolName?: string;
   toolInput?: Record<string, any>;
+}
+
+// Media detection types
+type MediaType = "audio" | "video" | "image" | "document";
+
+interface DetectedMedia {
+  type: MediaType;
+  filename: string;
+  webUrl: string;
+}
+
+// Map file extensions to media types
+const EXTENSION_TO_TYPE: Record<string, MediaType> = {
+  // Audio
+  ".mp3": "audio",
+  ".wav": "audio",
+  ".m4a": "audio",
+  ".aac": "audio",
+  ".ogg": "audio",
+  ".oga": "audio",
+  ".flac": "audio",
+  // Video
+  ".mp4": "video",
+  ".mov": "video",
+  ".webm": "video",
+  ".avi": "video",
+  ".mkv": "video",
+  // Images
+  ".jpg": "image",
+  ".jpeg": "image",
+  ".png": "image",
+  ".gif": "image",
+  ".webp": "image",
+  // Documents
+  ".pdf": "document",
+  ".doc": "document",
+  ".docx": "document",
+  ".txt": "document",
+  ".csv": "document",
+  ".xlsx": "document",
+};
+
+/**
+ * Detect media file paths in message content.
+ * Supports both absolute paths (containing /media/) and relative paths (starting with media/).
+ */
+function detectMediaPaths(content: string): DetectedMedia[] {
+  const detected: DetectedMedia[] = [];
+  const seenUrls = new Set<string>();
+
+  // Pattern 1: Absolute paths containing /media/
+  // Matches: /home/user/.myagentive/media/audio/file.mp3
+  const absolutePathRegex = /\/[^\s]+\/media\/([^\s]+\.[a-zA-Z0-9]+)/g;
+
+  // Pattern 2: Relative paths starting with "media/"
+  // Matches: media/audio/file.mp3 or ./media/audio/file.mp3
+  // Also handles markdown formatting like `media/...` or **`media/...`**
+  const relativePathRegex = /(?:^|[\s:`*])\.?\/?(media\/[\w./-]+\.[a-zA-Z0-9]+)/g;
+
+  // Process absolute path matches
+  for (const match of content.matchAll(absolutePathRegex)) {
+    const relativePath = match[1];
+    const webUrl = `/api/media/${relativePath}`;
+
+    if (seenUrls.has(webUrl)) continue;
+    seenUrls.add(webUrl);
+
+    const ext = relativePath.substring(relativePath.lastIndexOf(".")).toLowerCase();
+    const filename = relativePath.split("/").pop() || relativePath;
+    const type = EXTENSION_TO_TYPE[ext] || "document";
+
+    detected.push({ type, filename, webUrl });
+  }
+
+  // Process relative path matches
+  for (const match of content.matchAll(relativePathRegex)) {
+    const fullRelativePath = match[1]; // e.g., "media/audio/file.mp3"
+    const relativePath = fullRelativePath.replace(/^media\//, ""); // strip "media/" prefix
+    const webUrl = `/api/media/${relativePath}`;
+
+    if (seenUrls.has(webUrl)) continue;
+    seenUrls.add(webUrl);
+
+    const ext = relativePath.substring(relativePath.lastIndexOf(".")).toLowerCase();
+    const filename = relativePath.split("/").pop() || relativePath;
+    const type = EXTENSION_TO_TYPE[ext] || "document";
+
+    detected.push({ type, filename, webUrl });
+  }
+
+  return detected;
+}
+
+/**
+ * Render detected media inline
+ */
+function MediaRenderer({ media }: { media: DetectedMedia }) {
+  switch (media.type) {
+    case "audio":
+      return (
+        <div className="mt-3 p-3 bg-gray-100 rounded-lg">
+          <div className="text-xs text-gray-500 mb-2">{media.filename}</div>
+          <audio controls className="w-full">
+            <source src={media.webUrl} />
+            Your browser does not support audio playback.
+          </audio>
+          <a
+            href={media.webUrl}
+            download={media.filename}
+            className="inline-block mt-2 text-xs text-blue-600 hover:underline"
+          >
+            Download
+          </a>
+        </div>
+      );
+    case "video":
+      return (
+        <div className="mt-3">
+          <video controls className="w-full max-w-lg rounded-lg">
+            <source src={media.webUrl} />
+            Your browser does not support video playback.
+          </video>
+          <a
+            href={media.webUrl}
+            download={media.filename}
+            className="inline-block mt-1 text-xs text-blue-600 hover:underline"
+          >
+            Download {media.filename}
+          </a>
+        </div>
+      );
+    case "image":
+      return (
+        <div className="mt-3">
+          <img
+            src={media.webUrl}
+            alt={media.filename}
+            className="max-w-md rounded-lg shadow-sm"
+          />
+          <a
+            href={media.webUrl}
+            download={media.filename}
+            className="inline-block mt-1 text-xs text-blue-600 hover:underline"
+          >
+            Download {media.filename}
+          </a>
+        </div>
+      );
+    case "document":
+    default:
+      return (
+        <a
+          href={media.webUrl}
+          download={media.filename}
+          className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg text-sm text-blue-600 hover:bg-gray-200"
+        >
+          <span>📎</span>
+          <span>{media.filename}</span>
+        </a>
+      );
+  }
 }
 
 interface ChatWindowProps {
@@ -74,6 +235,12 @@ function ToolUseBlock({ message }: { message: Message }) {
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user";
 
+  // Detect media files in assistant messages
+  const mediaFiles = useMemo(() => {
+    if (isUser) return [];
+    return detectMediaPaths(message.content);
+  }, [message.content, isUser]);
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
@@ -86,32 +253,38 @@ function MessageBubble({ message }: { message: Message }) {
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
-          <div className="prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-gray-800 prose-pre:text-gray-100 prose-code:text-pink-600 prose-code:bg-gray-200 prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
-            <ReactMarkdown
-              components={{
-                // Code blocks
-                pre: ({ children }) => (
-                  <pre className="overflow-x-auto p-3 rounded-md bg-gray-800 text-gray-100 text-sm">
-                    {children}
-                  </pre>
-                ),
-                // Inline code
-                code: ({ className, children, ...props }) => {
-                  const isBlock = className?.includes("language-");
-                  if (isBlock) {
-                    return <code className={className} {...props}>{children}</code>;
-                  }
-                  return (
-                    <code className="bg-gray-200 text-pink-600 px-1 rounded text-sm" {...props}>
+          <>
+            <div className="prose prose-sm max-w-none prose-p:my-1 prose-pre:my-2 prose-pre:bg-gray-800 prose-pre:text-gray-100 prose-code:text-pink-600 prose-code:bg-gray-200 prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+              <ReactMarkdown
+                components={{
+                  // Code blocks
+                  pre: ({ children }) => (
+                    <pre className="overflow-x-auto p-3 rounded-md bg-gray-800 text-gray-100 text-sm">
                       {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </div>
+                    </pre>
+                  ),
+                  // Inline code
+                  code: ({ className, children, ...props }) => {
+                    const isBlock = className?.includes("language-");
+                    if (isBlock) {
+                      return <code className={className} {...props}>{children}</code>;
+                    }
+                    return (
+                      <code className="bg-gray-200 text-pink-600 px-1 rounded text-sm" {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
+            {/* Render detected media files */}
+            {mediaFiles.map((media, index) => (
+              <MediaRenderer key={`${media.webUrl}-${index}`} media={media} />
+            ))}
+          </>
         )}
       </div>
     </div>

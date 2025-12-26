@@ -1,7 +1,9 @@
-import { Bot } from "grammy";
+import { Bot, InputFile } from "grammy";
 import { sessionManager } from "../core/session-manager.js";
 import type { OutgoingWSMessage } from "../types.js";
 import { convertToTelegramMarkdown } from "./markdown-converter.js";
+import { detectMediaInMessage, type DetectedMedia } from "../utils/media-detector.js";
+import { config } from "../config.js";
 
 // Telegram message length limit
 const MAX_MESSAGE_LENGTH = 4096;
@@ -177,6 +179,9 @@ class TelegramSubscriptionManager {
             // Final update with markdown formatting
             if (subscription.activeResponse.content) {
               await this.updateActiveMessage(chatId, subscription.activeResponse.content, true);
+
+              // Auto-forward any media files referenced in the response
+              await this.sendDetectedMedia(chatId, subscription.activeResponse.content);
             } else {
               await this.updateActiveMessage(chatId, "Done (no text response)");
             }
@@ -234,6 +239,49 @@ class TelegramSubscriptionManager {
       } else {
         console.error(`Failed to send message to Telegram user ${chatId}:`, error);
       }
+    }
+  }
+
+  // Send a media file to the user
+  private async sendMediaFile(chatId: number, media: DetectedMedia): Promise<void> {
+    if (!this.bot) return;
+
+    try {
+      const inputFile = new InputFile(media.path, media.filename);
+
+      switch (media.type) {
+        case "audio":
+          await this.bot.api.sendAudio(chatId, inputFile, {
+            title: media.filename,
+          });
+          break;
+        case "voice":
+          await this.bot.api.sendVoice(chatId, inputFile);
+          break;
+        case "video":
+          await this.bot.api.sendVideo(chatId, inputFile);
+          break;
+        case "image":
+          await this.bot.api.sendPhoto(chatId, inputFile);
+          break;
+        case "document":
+        default:
+          await this.bot.api.sendDocument(chatId, inputFile);
+          break;
+      }
+
+      console.log(`[Telegram] Sent ${media.type} to ${chatId}: ${media.filename}`);
+    } catch (error) {
+      console.error(`[Telegram] Failed to send ${media.type} to ${chatId}:`, error);
+    }
+  }
+
+  // Detect and send any media files referenced in a message
+  private async sendDetectedMedia(chatId: number, content: string): Promise<void> {
+    const mediaFiles = detectMediaInMessage(content, config.mediaPath);
+
+    for (const media of mediaFiles) {
+      await this.sendMediaFile(chatId, media);
     }
   }
 
