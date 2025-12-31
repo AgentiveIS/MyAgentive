@@ -71,9 +71,9 @@ export function Message({ message, onRetry }: MessageProps) {
       </Avatar>
 
       {/* Message Content */}
-      <div className={cn("flex flex-col gap-1 max-w-[80%]", isUser && "items-end")}>
+      <div className={cn("flex flex-col gap-1 max-w-[80%] min-w-0", isUser && "items-end")}>
         {/* Message Bubble */}
-        <div className="relative">
+        <div className="relative min-w-0">
           <div
             className={cn(
               "rounded-lg px-4 py-2",
@@ -83,9 +83,9 @@ export function Message({ message, onRetry }: MessageProps) {
             )}
           >
             {isUser ? (
-              <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
             ) : (
-              <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted-foreground/10 prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+              <div className="prose prose-sm max-w-none break-words dark:prose-invert prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted-foreground/10 prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkMath]}
                   rehypePlugins={[rehypeKatex]}
