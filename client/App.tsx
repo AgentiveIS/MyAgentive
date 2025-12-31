@@ -147,9 +147,23 @@ export default function App() {
   const { sendJsonMessage, readyState, lastJsonMessage } = useWebSocket(
     wsUrl,
     {
-      shouldReconnect: () => true,
+      shouldReconnect: (closeEvent) => {
+        // Don't reconnect if closed due to authentication failure
+        if (closeEvent.code === 1008) {
+          console.log('[WS] Authentication failed, clearing session');
+          localStorage.removeItem("sessionToken");
+          setSessionToken(null);
+          logout();
+          toast.error("Session expired. Please log in again.");
+          return false;
+        }
+        return true;
+      },
       reconnectAttempts: 10,
       reconnectInterval: 3000,
+      onOpen: () => console.log('[WS] Connection opened'),
+      onClose: (event) => console.log('[WS] Connection closed', { code: event.code, reason: event.reason }),
+      onError: (event) => console.error('[WS] Error:', event),
     },
     !!sessionToken
   );
@@ -346,17 +360,18 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    if (readyState === ReadyState.OPEN) {
-      toast.success("Connected to server");
-    } else if (readyState === ReadyState.CLOSED) {
-      toast.error("Disconnected from server");
-    } else if (readyState === ReadyState.CONNECTING) {
-      toast.loading("Connecting...", { id: "connecting" });
-    }
+    const hasPreviouslyConnected = sessionStorage.getItem("ws_connected");
 
-    // Dismiss loading toast when connected or failed
-    if (readyState === ReadyState.OPEN || readyState === ReadyState.CLOSED) {
+    if (readyState === ReadyState.OPEN) {
+      if (hasPreviouslyConnected) {
+        toast.success("Reconnected to server", { duration: 2000 });
+      }
+      sessionStorage.setItem("ws_connected", "true");
       toast.dismiss("connecting");
+    } else if (readyState === ReadyState.CLOSED && hasPreviouslyConnected) {
+      toast.error("Connection lost. Reconnecting...", { duration: 3000 });
+    } else if (readyState === ReadyState.CONNECTING && hasPreviouslyConnected) {
+      toast.loading("Reconnecting...", { id: "connecting", duration: Infinity });
     }
   }, [readyState, isAuthenticated]);
 

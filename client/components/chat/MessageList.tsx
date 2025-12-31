@@ -108,7 +108,7 @@ export function MessageList({ messages, isLoading, onRetry, onSuggest }: Message
   return (
     <div className="relative flex-1 overflow-hidden">
       <ScrollArea className="h-full" ref={scrollAreaRef}>
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-x-hidden">
           {messages.map((msg) =>
             msg.role === "tool_use" ? (
               <ToolUse key={msg.id} message={msg} />
