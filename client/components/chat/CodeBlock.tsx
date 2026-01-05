@@ -35,7 +35,7 @@ export function CodeBlock({ children, className, language }: CodeBlockProps) {
   };
 
   return (
-    <div className="relative group/code">
+    <div className="relative group/code max-w-full">
       {/* Language badge */}
       {language && (
         <div className="absolute top-0 left-3 px-2 py-0.5 text-[10px] font-medium text-muted-foreground bg-muted rounded-b">
@@ -64,7 +64,7 @@ export function CodeBlock({ children, className, language }: CodeBlockProps) {
       {/* Code content */}
       <pre
         className={cn(
-          "overflow-x-auto p-3 rounded-md bg-muted-foreground/10 text-sm",
+          "overflow-x-auto max-w-full p-3 rounded-md bg-muted-foreground/10 text-sm",
           language && "pt-7",
           className
         )}
