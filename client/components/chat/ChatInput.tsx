@@ -53,6 +53,8 @@ export function ChatInput({
     if (!input.trim() || disabled || isLoading) return;
     onSend(input.trim());
     setInput("");
+    // Keep focus on input for next message
+    textareaRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

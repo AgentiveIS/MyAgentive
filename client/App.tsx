@@ -29,6 +29,26 @@ interface Message {
 // Use relative URLs - Vite will proxy to the backend
 const API_BASE = "/api";
 
+// Polyfill for crypto.randomUUID - not available in non-secure contexts (HTTP over IP)
+// In some browsers, crypto.randomUUID exists but throws when called in non-secure contexts
+function generateUUID(): string {
+  // Try native implementation first (only works in secure contexts)
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // Falls through to fallback
+  }
+  // Fallback using crypto.getRandomValues (available in all contexts)
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 function getWSUrl(token: string | null): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.host;
@@ -88,7 +108,7 @@ export default function App() {
           setMessages((prev) => [
             ...prev,
             {
-              id: crypto.randomUUID(),
+              id: generateUUID(),
               role: "user",
               content: `[${message.source === "telegram" ? "Telegram" : message.source}] ${message.content}`,
               timestamp: new Date().toISOString(),
@@ -102,7 +122,7 @@ export default function App() {
         setMessages((prev) => [
           ...prev,
           {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             role: "assistant",
             content: message.content,
             timestamp: new Date().toISOString(),
@@ -324,7 +344,7 @@ export default function App() {
     setMessages((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: "user",
         content,
         timestamp: new Date().toISOString(),
@@ -351,10 +371,12 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated && sessions.length > 0 && !currentSessionName) {
       switchSession(sessions[0].name);
-    } else if (isAuthenticated && sessions.length === 0 && isConnected) {
+    } else if (isAuthenticated && sessions.length === 0 && !sessionsLoading && isConnected) {
+      // Only create default session after fetchSessions completes (sessionsLoading = false)
+      // and confirms there are truly no sessions
       createSession("default");
     }
-  }, [isAuthenticated, sessions, currentSessionName, isConnected]);
+  }, [isAuthenticated, sessions, currentSessionName, isConnected, sessionsLoading]);
 
   // Connection status notifications
   useEffect(() => {

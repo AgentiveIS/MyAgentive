@@ -29,12 +29,23 @@ export function MessageList({ messages, isLoading, onRetry, onSuggest }: Message
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [userScrolled, setUserScrolled] = useState(false);
+  const prevUserMsgCountRef = useRef(0);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
     setShowScrollButton(false);
     setUserScrolled(false);
   }, []);
+
+  // Reset userScrolled when user sends a new message
+  useEffect(() => {
+    const userMsgCount = messages.filter((m) => m.role === "user").length;
+    if (userMsgCount > prevUserMsgCountRef.current) {
+      // User sent a new message, reset scroll state so auto-scroll works
+      setUserScrolled(false);
+    }
+    prevUserMsgCountRef.current = userMsgCount;
+  }, [messages]);
 
   // Use IntersectionObserver for reliable scroll detection on mobile
   useEffect(() => {
