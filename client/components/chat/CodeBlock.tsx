@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { Button } from "../ui/button";
-import { cn } from "@/lib/utils";
+import { cn, copyToClipboard } from "@/lib/utils";
 
 interface CodeBlockProps {
   children: React.ReactNode;
@@ -29,7 +29,7 @@ export function CodeBlock({ children, className, language }: CodeBlockProps) {
 
   const handleCopy = async () => {
     const code = getCodeText();
-    await navigator.clipboard.writeText(code);
+    await copyToClipboard(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

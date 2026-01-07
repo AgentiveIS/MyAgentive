@@ -284,6 +284,8 @@ export function Sidebar({
           >
             MyAgentive.ai
           </a>
+          <span className="mx-1">·</span>
+          <span>v{__APP_VERSION__}</span>
         </p>
       </div>
     </div>

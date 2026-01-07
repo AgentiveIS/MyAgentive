@@ -28,20 +28,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Determine static files directory
-// In compiled binary, use MYAGENTIVE_HOME or cwd; in dev, use relative path
+// Priority: 1) Repo dist (dev mode), 2) MYAGENTIVE_HOME/dist, 3) cwd/dist, 4) client dir
 const getStaticDir = () => {
+  // First check for dist relative to server file (repo dev mode)
+  const repoDistPath = path.join(__dirname, "../dist");
+  if (fs.existsSync(repoDistPath)) {
+    return repoDistPath;
+  }
+
+  // Then check MYAGENTIVE_HOME or cwd (production/installed mode)
   const myagentiveHome = process.env.MYAGENTIVE_HOME || process.cwd();
   const distPath = path.join(myagentiveHome, "dist");
+  if (fs.existsSync(distPath)) {
+    return distPath;
+  }
 
-  // Check if dist exists (production/compiled mode)
-  try {
-    const fs = require("fs");
-    if (fs.existsSync(distPath)) {
-      return distPath;
-    }
-  } catch {}
-
-  // Fallback to client directory (development mode)
+  // Fallback to client directory (Vite dev server handles this)
   return path.join(__dirname, "../client");
 };
 

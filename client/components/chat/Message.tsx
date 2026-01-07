@@ -12,7 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, copyToClipboard } from "@/lib/utils";
 import { detectMediaPaths } from "@/lib/media-utils";
 import { MediaPreview } from "./MediaPreview";
 import { CodeBlock } from "./CodeBlock";
@@ -43,7 +43,7 @@ export function Message({ message, onRetry }: MessageProps) {
   }, [message.content, isUser]);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(message.content);
+    await copyToClipboard(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

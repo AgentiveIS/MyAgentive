@@ -2,6 +2,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { configExists, runSetupWizard, getConfigPath } from "./setup-wizard.js";
 
+// Read version from package.json
+const packageJsonPath = path.resolve(import.meta.dir, "../package.json");
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+const APP_VERSION = packageJson.version;
+
 // Load config from ~/.myagentive/config if it exists
 function loadConfigFile(): void {
   const configPath = getConfigPath();
@@ -44,7 +49,7 @@ async function bootstrap(): Promise<void> {
     sendShutdownMessage,
   } = await import("./telegram/monitoring.js");
 
-  console.log("Starting MyAgentive...");
+  console.log(`Starting MyAgentive v${APP_VERSION}...`);
   console.log(`Environment: ${config.nodeEnv}`);
   console.log(`Domain: ${config.domain}`);
 
