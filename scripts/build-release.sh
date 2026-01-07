@@ -22,9 +22,14 @@ cat > server/version.ts << EOF
 export const APP_VERSION = "$VERSION";
 EOF
 
-# Create release directory
+# Create release directory (clean old files to prevent stale builds)
 RELEASE_DIR="release"
-mkdir -p "$RELEASE_DIR"
+echo "Cleaning old release artifacts..."
+rm -rf "$RELEASE_DIR/MyAgentive"
+rm -rf "$RELEASE_DIR/MyAgentive-linux"
+rm -rf dist
+mkdir -p "$RELEASE_DIR/MyAgentive"
+mkdir -p "$RELEASE_DIR/MyAgentive-linux"
 
 # Build frontend
 echo "Building frontend..."
