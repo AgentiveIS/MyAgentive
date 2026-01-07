@@ -10,7 +10,7 @@ Please be respectful and constructive in all interactions. We welcome contributo
 
 ### Reporting Bugs
 
-1. Check if the bug has already been reported in [Issues](https://github.com/AgentiveIS/MyAgentive/issues)
+1. Check if the bug has already been reported in [Issues](https://github.com/AgentiveAU/MyAgentive/issues)
 2. If not, create a new issue using the bug report template
 3. Include as much detail as possible: steps to reproduce, expected behaviour, actual behaviour
 

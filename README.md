@@ -9,11 +9,6 @@ Open-source personal AI agent for power users. Runs on your laptop with Telegram
 ## Quick Install
 
 ```bash
-# Option 1: Homebrew (recommended)
-brew tap AgentiveIS/tap
-brew install myagentive
-
-# Option 2: Install script
 curl -fsSL https://myagentive.ai/install | bash
 ```
 
@@ -104,11 +99,8 @@ myagentivectl status
 ## Updating
 
 ```bash
-# Homebrew
-brew upgrade myagentive
-
-# Install script (re-run to update)
-curl -fsSL https://myagentive.agentive.is/install | bash
+# Re-run the install script to update
+curl -fsSL https://myagentive.ai/install | bash
 ```
 
 Your config and data are preserved in `~/.myagentive/`.
@@ -212,7 +204,7 @@ For contributors and local development:
 
 ```bash
 # Clone the repo
-git clone https://github.com/AgentiveIS/myagentive.git
+git clone https://github.com/AgentiveAU/MyAgentive.git
 cd myagentive
 
 # Install dependencies
