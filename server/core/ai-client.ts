@@ -1,7 +1,12 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import * as path from "path";
 
 // Current model preference (can be changed at runtime)
 let currentModel: "opus" | "sonnet" | "haiku" = "opus";
+
+// Project root directory (where .claude/skills/ lives)
+// Uses import.meta.dir to find the source location, then goes up to repo root
+const PROJECT_ROOT = path.resolve(import.meta.dir, "../..");
 
 export function getCurrentModel(): string {
   return currentModel;
@@ -133,6 +138,7 @@ export class AgentSession {
       options: {
         maxTurns: 100,
         model: currentModel,
+        cwd: PROJECT_ROOT, // Use repo root for .claude/skills/ lookup
         settingSources: ['project'],
         allowedTools: [
           "Bash",
