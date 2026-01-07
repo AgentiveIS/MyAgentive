@@ -5,9 +5,18 @@ This document outlines the complete release process for MyAgentive.
 ## Prerequisites
 
 - Access to the MyAgentive repository
-- Access to the homebrew-tap repository (`~/repo-agentive/homebrew-tap`)
 - GitHub CLI (`gh`) installed and authenticated
 - Bun runtime installed
+
+## Installation Method
+
+MyAgentive uses a single installation method:
+
+```bash
+curl -fsSL https://myagentive.ai/install | bash
+```
+
+The install script automatically fetches the latest version from the GitHub API.
 
 ## Release Checklist
 
@@ -76,56 +85,12 @@ gh release create vX.Y.Z \
 By Agentive (https://MyAgentive.ai)"
 ```
 
-### 7. Update Homebrew Tap
+### 7. Verify Installation
 
-Get the SHA256 hashes for both release archives:
-
-```bash
-shasum -a 256 release/MyAgentive-vX.Y.Z-macos.tar.gz
-shasum -a 256 release/MyAgentive-vX.Y.Z-linux-x64.tar.gz
-```
-
-Update the formula in `~/repo-agentive/homebrew-tap/Formula/myagentive.rb`:
-
-```ruby
-version "X.Y.Z"
-
-on_macos do
-  url "https://github.com/AgentiveIS/MyAgentive/releases/download/vX.Y.Z/MyAgentive-vX.Y.Z-macos.tar.gz"
-  sha256 "<macos-sha256>"
-end
-
-on_linux do
-  url "https://github.com/AgentiveIS/MyAgentive/releases/download/vX.Y.Z/MyAgentive-vX.Y.Z-linux-x64.tar.gz"
-  sha256 "<linux-sha256>"
-end
-```
-
-Commit and push:
+Test the install script:
 
 ```bash
-cd ~/repo-agentive/homebrew-tap
-git add -A
-git commit -m "Update myagentive to vX.Y.Z
-
-By Agentive (https://MyAgentive.ai)"
-git push
-```
-
-### 8. Verify Installation
-
-Test the release via Homebrew:
-
-```bash
-brew update
-brew upgrade myagentive
-brew info myagentive
-```
-
-Test the install script (auto-fetches latest version):
-
-```bash
-curl -fsSL https://myagentive.agentive.is/install | bash
+curl -fsSL https://myagentive.ai/install | bash
 ```
 
 ## Quick Reference
@@ -136,10 +101,4 @@ curl -fsSL https://myagentive.agentive.is/install | bash
 | Tag | `git tag -a vX.Y.Z -m "message"` |
 | Push | `git push origin main && git push origin vX.Y.Z` |
 | Release | `gh release create vX.Y.Z release/*.tar.gz --title "vX.Y.Z" --notes "..."` |
-| SHA256 | `shasum -a 256 release/*.tar.gz` |
-
-## Notes
-
-- The install script at `myagentive.agentive.is/install` automatically fetches the latest version from GitHub API
-- Homebrew requires manual SHA256 updates for security verification
-- Always test both Homebrew and curl installation methods after release
+| Verify | `curl -fsSL https://myagentive.ai/install \| bash` |
