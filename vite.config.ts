@@ -93,6 +93,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: "../dist",
+      emptyOutDir: true, // Clean dist before each build (outDir is outside root)
     },
   };
 });
