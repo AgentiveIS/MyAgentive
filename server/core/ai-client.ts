@@ -1,5 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import * as path from "path";
+import * as fs from "fs";
 
 // Current model preference (can be changed at runtime)
 let currentModel: "opus" | "sonnet" | "haiku" = "opus";
@@ -28,7 +29,8 @@ export function setCurrentModel(model: "opus" | "sonnet" | "haiku"): void {
   currentModel = model;
 }
 
-const SYSTEM_PROMPT = `You are MyAgentive, a super personal AI agent built by Agentive (https://MyAgentive.ai). You are NOT Claude - you are MyAgentive, a distinct product that uses Claude's capabilities as its foundation.
+// Embedded default system prompt (fallback for compiled binaries)
+const DEFAULT_SYSTEM_PROMPT = `You are MyAgentive, a super personal AI agent built by Agentive (https://MyAgentive.ai). You are NOT Claude - you are MyAgentive, a distinct product that uses Claude's capabilities as its foundation.
 
 When asked who or what you are, always identify as "MyAgentive".
 
@@ -67,6 +69,61 @@ You are responsible for managing API keys on behalf of the user. Always save new
 ## MyAgentive Self-Knowledge
 
 When users ask about MyAgentive itself (You) like what it is, how to configure it, troubleshooting, architecture, use "myagentive" skill to answer.`;
+
+// System prompt file paths
+const MYAGENTIVE_HOME =
+  process.env.MYAGENTIVE_HOME ||
+  path.join(process.env.HOME || "", ".myagentive");
+const SYSTEM_PROMPT_PATH = path.join(MYAGENTIVE_HOME, "system_prompt.md");
+
+function getDefaultPromptPath(): string {
+  const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
+  if (isCompiledBinary) {
+    // Binary: default prompt alongside executable
+    return path.join(path.dirname(process.execPath), "default-system-prompt.md");
+  }
+  // Development: in server/ directory
+  return path.resolve(import.meta.dir, "../default-system-prompt.md");
+}
+
+function loadSystemPrompt(): string {
+  // Try user's custom prompt first
+  if (fs.existsSync(SYSTEM_PROMPT_PATH)) {
+    try {
+      const customPrompt = fs.readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
+      console.log(`Loaded custom system prompt from: ${SYSTEM_PROMPT_PATH}`);
+      return customPrompt;
+    } catch (error) {
+      console.warn("Failed to read custom system prompt, using default");
+    }
+  }
+
+  // Load default prompt
+  const defaultPath = getDefaultPromptPath();
+  let defaultPrompt: string;
+
+  if (fs.existsSync(defaultPath)) {
+    defaultPrompt = fs.readFileSync(defaultPath, "utf-8");
+  } else {
+    // Fallback to embedded default (for compiled binary)
+    defaultPrompt = DEFAULT_SYSTEM_PROMPT;
+  }
+
+  // Copy default to user location for discoverability
+  try {
+    if (fs.existsSync(MYAGENTIVE_HOME)) {
+      fs.writeFileSync(SYSTEM_PROMPT_PATH, defaultPrompt, "utf-8");
+      console.log(`Created customisable system prompt at: ${SYSTEM_PROMPT_PATH}`);
+    }
+  } catch (error) {
+    console.warn("Could not create user system prompt file");
+  }
+
+  return defaultPrompt;
+}
+
+// Load system prompt once at startup
+const SYSTEM_PROMPT = loadSystemPrompt();
 
 type UserMessage = {
   type: "user";

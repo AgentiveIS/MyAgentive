@@ -196,6 +196,15 @@ MEDIA_PATH=./media
 
   fs.writeFileSync(CONFIG_FILE, configContent);
 
+  // Copy default system prompt to user config directory
+  const systemPromptDest = path.join(CONFIG_DIR, "system_prompt.md");
+  const defaultPromptSrc = path.join(__dirname, "default-system-prompt.md");
+
+  if (fs.existsSync(defaultPromptSrc)) {
+    fs.copyFileSync(defaultPromptSrc, systemPromptDest);
+    console.log("✓ System prompt created (customisable)");
+  }
+
   rl.close();
 
   // Summary
@@ -211,6 +220,7 @@ MEDIA_PATH=./media
   console.log("  • Telegram: Message your bot directly");
   console.log("");
   console.log("To edit settings later: nano ~/.myagentive/config");
+  console.log("To customise AI behaviour: nano ~/.myagentive/system_prompt.md");
   console.log("");
   console.log("Starting MyAgentive...");
   console.log("");

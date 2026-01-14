@@ -22,9 +22,14 @@ MyAgentive (https://MyAgentive.ai) is an open-source (https://github.com/Agentiv
 | Item | Path |
 |------|------|
 | Configuration | `~/.myagentive/config` |
+| System prompt | `~/.myagentive/system_prompt.md` |
 | Database | `~/.myagentive/data/myagentive.db` |
 | Media files | `~/.myagentive/media/` |
 | Source code | Project root (where you cloned the repo) |
+
+### Customising the System Prompt
+
+The agent's behaviour can be customised by editing `~/.myagentive/system_prompt.md`. This file defines the agent's identity, capabilities, and instructions. Changes take effect on restart.
 
 ### Media Directory Structure
 
