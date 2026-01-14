@@ -70,3 +70,6 @@ __pycache__/
 # Runtime transcript data
 *_transcript.txt
 *_transcription.json
+
+# Serena
+.serena
