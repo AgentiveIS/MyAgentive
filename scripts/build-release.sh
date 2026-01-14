@@ -59,6 +59,7 @@ sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive/install.sh" && rm
 mkdir -p "$RELEASE_DIR/MyAgentive/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive/"
+cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive/"
 
 # Copy skills to .claude/skills (SDK expects this location)
 echo "Copying skills..."
@@ -84,6 +85,7 @@ sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive-linux/install.sh"
 mkdir -p "$RELEASE_DIR/MyAgentive-linux/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
+cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux/"
 
 # Copy skills for Linux to .claude/skills (SDK expects this location)
 rm -rf "$RELEASE_DIR/MyAgentive-linux/.claude/skills"
@@ -106,6 +108,7 @@ sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive-linux-arm64/insta
 mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux-arm64/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux-arm64/"
+cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux-arm64/"
 
 # Copy skills for Linux ARM64 to .claude/skills (SDK expects this location)
 rm -rf "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills"
